@@ -4,7 +4,6 @@ on:
   push:
     branches: [ main ]
 
-
 permissions:
   contents: write 
 
@@ -14,6 +13,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+         fetch-depth: 0 # fetch all commits and branches
+        # ref: main # only fetches the main branch, to fetch multiple probabaly needs to be done like bellow
+
+# - name: Fetch specific branches
+#  run: |
+#    git fetch origin main:refs/remotes/origin/main
+#    git fetch origin jazzy:refs/remotes/origin/jazzy
 
       - name: Set up Python
         uses: actions/setup-python@v4

@@ -3,9 +3,8 @@ set -x
 
 ################################################################################
 # File:    buildDocs.sh
-# Purpose: Script that builds our documentation using sphinx and updates GitHub
-#          Pages. This script is executed by:
-#            .github/workflows/docs_pages_workflow.yml
+# Purpose: Build versioned documentation using Sphinx for multiple branches,
+#          single language only, then update GitHub Pages.
 ################################################################################
 
 #####################
@@ -16,66 +15,57 @@ pwd
 ls -lah
 export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
 
-
 ##############
-# DOWNLOAD REQUIREMENTS #
+# INSTALL DEPENDENCIES #
 ##############
+pip install --upgrade pip
 pip install -r required_packages.txt
-
-# for exact reproducability of the packages run:
-# pip install -r required_packages_versions.txt
 
 ##############
 # BUILD DOCS #
 ##############
 
-# build our documentation with sphinx (see docs/conf.py)
-# * https://www.sphinx-doc.org/en/master/usage/quickstart.html#running-the-build
+# clean previous builds
 make -C docs clean
-make -C docs html
 
-#######################
-# Update GitHub Pages #
-#######################
-
-git config --global user.name "${GITHUB_ACTOR}"
-git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-
+# temp dir for GitHub Pages output
 docroot=$(mktemp -d)
-rsync -av "docs/_build/html/" "${docroot}/"
+export REPO_NAME="${GITHUB_REPOSITORY##*/}"
 
-pushd "${docroot}"
+# branches to build (multiversion logic)
+versions=$(git for-each-ref --format='%(refname:lstrip=-1)' refs/remotes/origin/ | grep -viE '^(HEAD|gh-pages)$')
 
-# don't bother maintaining history; just generate fresh
-git init
-git remote add deploy "https://token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-git checkout -b gh-pages
+for current_version in ${versions}; do
+    git checkout ${current_version}
+    export current_version
 
-# add .nojekyll to the root so that github won't 404 on content added to dirs
-# that start with an underscore (_), such as our "_content" dir..
-touch .nojekyll
+    echo "INFO: Building docs for branch: ${current_version}"
 
-# Add README
-cat > README.md <<EOF
-# GitHub Pages Cache
+    # skip if docs folder is missing
+    [ ! -e "docs/conf.py" ] && { echo "INFO: 'docs/conf.py' not found (skipped)"; continue; }
 
-Nothing to see here. The contents of this branch are essentially a cache that's not intended to be viewed on github.com.
+    # single language: English
+    current_language="en"
+    export current_language
+    echo "INFO: Building for language: ${current_language}"
 
-If you're looking to update our documentation, check the relevant development branch's 'docs/' dir.
+    # HTML build
+    sphinx-build -b html docs/ docs/_build/html/${current_language}/${current_version} -D language="${current_language}"
 
-EOF
+    # PDF build
+    sphinx-build -b rinoh docs/ docs/_build/rinoh -D language="${current_language}"
+    mkdir -p "${docroot}/${current_language}/${current_version}"
+    cp "docs/_build/rinoh/target.pdf" "${docroot}/${current_language}/${current_version}/helloWorld-docs_${current_language}_${current_version}.pdf"
 
-# copy the resulting html pages built from sphinx above to our new git repo
-git add .
+    # EPUB build
+    sphinx-build -b epub docs/ docs/_build/epub -D language="${current_language}"
+    mkdir -p "${docroot}/${current_language}/${current_version}"
+    cp "docs/_build/epub/target.epub" "${docroot}/${current_language}/${current_version}/helloWorld-docs_${current_language}_${current_version}.epub"
 
-# commit all the new files
-msg="Updating Docs for commit ${GITHUB_SHA} made on $(date -d "@${SOURCE_DATE_EPOCH}" --iso-8601=seconds) from ${GITHUB_REF} by ${GITHUB_ACTOR}"
-git commit -am "${msg}"
+    # copy static HTML assets
+    rsync -av "docs/_build/html/" "${docroot}/"
 
-# overwrite the contents of the gh-pages branch on our github.com repo
-git push deploy gh-pages --force
+done
 
-popd # return to main repo sandbox root
-
-# exit cleanly
-exit 0
+# return to main branch
+git checkout main
