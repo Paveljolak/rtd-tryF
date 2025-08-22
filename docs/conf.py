@@ -8,10 +8,10 @@ project = 'my-docs'
 copyright = '2025, pavel'
 author = 'pavel'
 release = '1.0.0'
-version = release  # Added for EPUB compatibility
+version = release  # For EPUB compatibility
 
 # -- General configuration ---------------------------------------------------
-extensions = ['sphinx_rtd_theme']
+extensions = ['sphinx_rtd_theme', 'rinoh']
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
@@ -20,7 +20,15 @@ sys.path.insert(0, os.path.abspath('../src'))
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
-# html_static_path = ['_static']  # Commented out to avoid warning; uncomment if custom static files are needed
+# html_static_path = ['_static']  # Commented out to avoid warning
+
+# -- Options for rinoh (PDF) output ------------------------------------------
+rinoh_documents = [
+    ( 'index',              # top-level file (index.rst)
+      'my-docs',            # output file name (my-docs.pdf)
+      project,              # document title
+      author),              # document author
+]
 
 # -------------------------------
 # Multi-version (branch) support

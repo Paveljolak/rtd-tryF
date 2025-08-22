@@ -34,4 +34,5 @@ jobs:
           GITHUB_REF: ${{ github.ref }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
+          echo "GITHUB_TOKEN is set to: ${GITHUB_TOKEN:0:5}..." # Debug token presence
           bash docs/buildDocs.sh
