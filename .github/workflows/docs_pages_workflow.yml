@@ -5,7 +5,7 @@ on:
     branches: [ main, jazzy ]
 
 permissions:
-  contents: write 
+  contents: write
 
 jobs:
   build_docs_job:
@@ -14,13 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-         fetch-depth: 0 # fetch all commits and branches
-        # ref: main # only fetches the main branch, to fetch multiple probabaly needs to be done like bellow
-
-# - name: Fetch specific branches
-#  run: |
-#    git fetch origin main:refs/remotes/origin/main
-#    git fetch origin jazzy:refs/remotes/origin/jazzy
+          fetch-depth: 0 # Fetch all commits and branches
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -32,12 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r required_packages.txt
 
-      - name: Build docs
-        run: |
-          make -C docs clean
-          make -C docs html
-
-      - name: Deploy
+      - name: Build and deploy docs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}

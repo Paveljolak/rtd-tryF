@@ -1,38 +1,22 @@
 #!/bin/bash
 set -x
 
-################################################################################
-# File:    buildDocs.sh
-# Purpose: Build versioned documentation using Sphinx for multiple branches,
-#          single language only, then update GitHub Pages.
-################################################################################
-
-#####################
-# DECLARE VARIABLES #
-#####################
-
 pwd
 ls -lah
 export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
 
-##############
-# INSTALL DEPENDENCIES #
-##############
+# Install dependencies
 pip install --upgrade pip
 pip install -r required_packages.txt
 
-##############
-# BUILD DOCS #
-##############
-
-# clean previous builds
+# Clean previous builds
 make -C docs clean
 
-# temp dir for GitHub Pages output
+# Temp dir for GitHub Pages output
 docroot=$(mktemp -d)
 export REPO_NAME="${GITHUB_REPOSITORY##*/}"
 
-# branches to build (multiversion logic)
+# Branches to build
 versions=$(git for-each-ref --format='%(refname:lstrip=-1)' refs/remotes/origin/ | grep -viE '^(HEAD|gh-pages)$')
 
 for current_version in ${versions}; do
@@ -41,10 +25,10 @@ for current_version in ${versions}; do
 
     echo "INFO: Building docs for branch: ${current_version}"
 
-    # skip if docs folder is missing
+    # Skip if docs folder is missing
     [ ! -e "docs/conf.py" ] && { echo "INFO: 'docs/conf.py' not found (skipped)"; continue; }
 
-    # single language: English
+    # Single language: English
     current_language="en"
     export current_language
     echo "INFO: Building for language: ${current_language}"
@@ -55,17 +39,26 @@ for current_version in ${versions}; do
     # PDF build
     sphinx-build -b rinoh docs/ docs/_build/rinoh -D language="${current_language}"
     mkdir -p "${docroot}/${current_language}/${current_version}"
-    cp "docs/_build/rinoh/target.pdf" "${docroot}/${current_language}/${current_version}/helloWorld-docs_${current_language}_${current_version}.pdf"
+    cp "docs/_build/rinoh/target.pdf" "${docroot}/${current_language}/${current_version}/my-docs_${current_language}_${current_version}.pdf" || echo "PDF build failed"
 
     # EPUB build
     sphinx-build -b epub docs/ docs/_build/epub -D language="${current_language}"
     mkdir -p "${docroot}/${current_language}/${current_version}"
-    cp "docs/_build/epub/target.epub" "${docroot}/${current_language}/${current_version}/helloWorld-docs_${current_language}_${current_version}.epub"
+    cp "docs/_build/epub/my-docs.epub" "${docroot}/${current_language}/${current_version}/my-docs_${current_language}_${current_version}.epub" || echo "EPUB copy failed"
 
-    # copy static HTML assets
+    # Copy static HTML assets
     rsync -av "docs/_build/html/" "${docroot}/"
-
 done
 
-# return to main branch
+# Return to main branch
 git checkout main
+
+# Deploy to gh-pages
+cd "$docroot"
+git init
+git config user.name "${GITHUB_ACTOR}"
+git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+git add .
+git commit -m "Deploy docs for ${GITHUB_SHA}"
+git push --force "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+cd -

@@ -3,3 +3,4 @@ sphinx_rtd_theme
 sphinx-autobuild
 myst-parser
 GitPython
+sphinxcontrib-rinoh
